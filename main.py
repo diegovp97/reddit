@@ -81,9 +81,20 @@ def cargar_posts_procesados():
     except FileNotFoundError:
         return set()
 
-# Función para obtener nuevas publicaciones
-def obtener_publicaciones(subreddit):
-    return list(subreddit.new(limit=5))
+# Modificar la función de obtención de publicaciones para avanzar más allá de las 5 últimas
+def obtener_publicaciones(subreddit, after=None):
+    publicaciones = subreddit.new(limit=20)
+    publicaciones_filtradas = []
+    
+    for post in publicaciones:
+        if post.id not in st.session_state.posts_procesados:
+            publicaciones_filtradas.append(post)
+
+    # Si no hay suficientes publicaciones nuevas, buscar más publicaciones
+    if len(publicaciones_filtradas) < 5:
+        publicaciones_filtradas.extend(subreddit.new(limit=100))
+
+    return publicaciones_filtradas
 
 # Configuración de Streamlit
 st.title("Análisis de emociones de Reddit")
