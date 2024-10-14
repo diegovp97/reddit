@@ -1,0 +1,6 @@
+praw
+csv  # Aunque es parte de la biblioteca estándar de Python, no es necesario instalarla
+streamlit
+transformers
+torch  # Este es necesario para usar transformers
+python-dotenv
