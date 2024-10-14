@@ -4,11 +4,11 @@ import streamlit as st
 from transformers import pipeline, AutoTokenizer
 from dotenv import load_dotenv
 import os
+import time
 
 # Cargar variables de entorno desde el archivo .env
 load_dotenv()
 
-# Obtener las credenciales de Reddit desde las variables de entorno
 # Obtener las credenciales de Streamlit secrets
 client_id = st.secrets["client_id"]
 client_secret = st.secrets["client_secret"]
@@ -28,6 +28,9 @@ reddit = praw.Reddit(
 # Configurar el tokenizer y el modelo de análisis de emociones
 tokenizer = AutoTokenizer.from_pretrained("j-hartmann/emotion-english-distilroberta-base")
 emotion_classifier = pipeline("text-classification", model="j-hartmann/emotion-english-distilroberta-base", top_k=None)
+
+# Lista para almacenar IDs de publicaciones ya vistas
+publicaciones_vistas = st.session_state.get('publicaciones_vistas', [])
 
 # Función para analizar emociones y generar recomendaciones
 def analizar_y_dar_consejos(texto):
@@ -70,21 +73,64 @@ def analizar_y_dar_consejos(texto):
 st.title("Análisis de emociones de Reddit")
 st.write("Este es un análisis de emociones para publicaciones del subreddit **Depresion**.")
 
+# Cargar publicaciones pasadas de la sesión
+publicaciones_pasadas = st.session_state.get('publicaciones_pasadas', [])
+
+# Botón para mostrar publicaciones pasadas
+mostrar_pasadas = st.button("Mostrar publicaciones pasadas")
+
+# Mostrar publicaciones pasadas
+if mostrar_pasadas:
+    st.write("Publicaciones Pasadas:")
+    for post in publicaciones_pasadas:
+        st.subheader(post['title'])
+        st.write(f"**Autor**: {post['author']}")
+        st.write(f"**Contenido**: {post['content']}")
+        st.write(f"[Ver publicación en Reddit]({post['url']})")
+        st.write(f"**Emoción detectada**: {post['emotion']}")
+        st.write(f"**Consejo**: {post['advice']}")
+        st.write("---")
+
 # Obtener las 5 publicaciones más recientes del subreddit
 subreddit = reddit.subreddit("Depresion")
-publicaciones = subreddit.new(limit=5)
+publicaciones = subreddit.new(limit=10)
 
-# Mostrar publicaciones en Streamlit
+# Almacenar las publicaciones nuevas que no han sido vistas
+nuevas_publicaciones = []
+
+# Procesar las publicaciones más recientes
 for submission in publicaciones:
-    st.subheader(submission.title)
-    st.write(f"**Autor**: {submission.author}")
-    st.write(f"**Contenido**: {submission.selftext}")
-    st.write(f"[Ver publicación en Reddit]({submission.url})")
-    
-    # Analizar emociones y generar consejo
-    emocion_detectada, consejo = analizar_y_dar_consejos(submission.selftext)
-    
-    # Mostrar emociones y consejo en Streamlit
-    st.write(f"**Emoción detectada**: {emocion_detectada}")
-    st.write(f"**Consejo**: {consejo}")
-    st.write("---")
+    if submission.id not in publicaciones_vistas:
+        nuevas_publicaciones.append(submission)
+        publicaciones_vistas.append(submission.id)  # Almacenar ID de la publicación para evitar repetirla
+
+        st.subheader(submission.title)
+        st.write(f"**Autor**: {submission.author}")
+        st.write(f"**Contenido**: {submission.selftext}")
+        st.write(f"[Ver publicación en Reddit]({submission.url})")
+        
+        # Analizar emociones y generar consejo
+        emocion_detectada, consejo = analizar_y_dar_consejos(submission.selftext)
+        
+        # Guardar en Streamlit
+        st.write(f"**Emoción detectada**: {emocion_detectada}")
+        st.write(f"**Consejo**: {consejo}")
+        st.write("---")
+        
+        # Guardar en publicaciones pasadas para acceso futuro
+        publicaciones_pasadas.append({
+            'title': submission.title,
+            'author': submission.author,
+            'content': submission.selftext,
+            'url': submission.url,
+            'emotion': emocion_detectada,
+            'advice': consejo
+        })
+
+# Guardar las publicaciones pasadas y vistas en la sesión
+st.session_state['publicaciones_vistas'] = publicaciones_vistas
+st.session_state['publicaciones_pasadas'] = publicaciones_pasadas
+
+# Automatización: Recargar la página cada 60 segundos
+st.experimental_rerun()
+time.sleep(60)
