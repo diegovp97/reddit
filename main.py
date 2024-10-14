@@ -9,12 +9,20 @@ import os
 load_dotenv()
 
 # Obtener las credenciales de Reddit desde las variables de entorno
+# Obtener las credenciales de Streamlit secrets
+client_id = st.secrets["CLIENT_ID"]
+client_secret = st.secrets["CLIENT_SECRET"]
+user_agent = st.secrets["USER_AGENT"]
+username = st.secrets["USERNAME"]
+password = st.secrets["PASSWORD"]
+
+# Conectar con Reddit
 reddit = praw.Reddit(
-    client_id=os.getenv('CLIENT_ID'),
-    client_secret=os.getenv('CLIENT_SECRET'),
-    user_agent=os.getenv('USER_AGENT'),
-    username=os.getenv('USERNAME'),
-    password=os.getenv('PASSWORD')
+    client_id=client_id,
+    client_secret=client_secret,
+    user_agent=user_agent,
+    username=username,
+    password=password
 )
 
 # Configurar el tokenizer y el modelo de análisis de emociones
