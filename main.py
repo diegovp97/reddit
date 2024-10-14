@@ -133,4 +133,4 @@ st.session_state['publicaciones_pasadas'] = publicaciones_pasadas
 
 # Automatización: Recargar la página cada 60 segundos
 st.experimental_rerun()
-time.sleep(60)
+time.sleep(500)
