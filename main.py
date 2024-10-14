@@ -10,11 +10,11 @@ load_dotenv()
 
 # Obtener las credenciales de Reddit desde las variables de entorno
 # Obtener las credenciales de Streamlit secrets
-client_id = st.secrets["CLIENT_ID"]
-client_secret = st.secrets["CLIENT_SECRET"]
-user_agent = st.secrets["USER_AGENT"]
-username = st.secrets["USERNAME"]
-password = st.secrets["PASSWORD"]
+client_id = st.secrets["client_id"]
+client_secret = st.secrets["client_secret"]
+user_agent = st.secrets["user_agent"]
+username = st.secrets["username"]
+password = st.secrets["password"]
 
 # Conectar con Reddit
 reddit = praw.Reddit(
