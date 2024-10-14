@@ -4,7 +4,6 @@ import streamlit as st
 from transformers import pipeline, AutoTokenizer
 from dotenv import load_dotenv
 import os
-import time
 
 # Cargar variables de entorno desde el archivo .env
 load_dotenv()
@@ -28,9 +27,6 @@ reddit = praw.Reddit(
 # Configurar el tokenizer y el modelo de análisis de emociones
 tokenizer = AutoTokenizer.from_pretrained("j-hartmann/emotion-english-distilroberta-base")
 emotion_classifier = pipeline("text-classification", model="j-hartmann/emotion-english-distilroberta-base", top_k=None)
-
-# Lista para almacenar IDs de publicaciones ya vistas
-publicaciones_vistas = st.session_state.get('publicaciones_vistas', [])
 
 # Función para analizar emociones y generar recomendaciones
 def analizar_y_dar_consejos(texto):
@@ -69,41 +65,45 @@ def analizar_y_dar_consejos(texto):
     consejo = consejos.get(emocion_principal, "Recuerda siempre cuidar tu bienestar emocional y buscar ayuda si es necesario.")
     return emocion_principal, consejo
 
+# Función para guardar posts ya procesados y evitar repeticiones
+def guardar_post_procesado(post_id):
+    with open('procesados.csv', mode='a', newline='', encoding='utf-8') as file:
+        writer = csv.writer(file)
+        writer.writerow([post_id])
+
+# Función para cargar los posts procesados
+def cargar_posts_procesados():
+    try:
+        with open('procesados.csv', mode='r', encoding='utf-8') as file:
+            reader = csv.reader(file)
+            procesados = {row[0] for row in reader}
+        return procesados
+    except FileNotFoundError:
+        return set()
+
+# Función para obtener nuevas publicaciones
+def obtener_publicaciones(subreddit):
+    return list(subreddit.new(limit=5))
+
 # Configuración de Streamlit
 st.title("Análisis de emociones de Reddit")
 st.write("Este es un análisis de emociones para publicaciones del subreddit **Depresion**.")
 
-# Cargar publicaciones pasadas de la sesión
-publicaciones_pasadas = st.session_state.get('publicaciones_pasadas', [])
+# Almacenar las publicaciones procesadas en el estado de sesión
+if 'posts_procesados' not in st.session_state:
+    st.session_state.posts_procesados = cargar_posts_procesados()
 
-# Botón para mostrar publicaciones pasadas
-mostrar_pasadas = st.button("Mostrar publicaciones pasadas")
+if 'publicaciones' not in st.session_state:
+    st.session_state.publicaciones = obtener_publicaciones(reddit.subreddit("Depresion"))
 
-# Mostrar publicaciones pasadas
-if mostrar_pasadas:
-    st.write("Publicaciones Pasadas:")
-    for post in publicaciones_pasadas:
-        st.subheader(post['title'])
-        st.write(f"**Autor**: {post['author']}")
-        st.write(f"**Contenido**: {post['content']}")
-        st.write(f"[Ver publicación en Reddit]({post['url']})")
-        st.write(f"**Emoción detectada**: {post['emotion']}")
-        st.write(f"**Consejo**: {post['advice']}")
-        st.write("---")
+# Botón para recargar publicaciones
+if st.button("Recargar publicaciones"):
+    st.session_state.publicaciones = obtener_publicaciones(reddit.subreddit("Depresion"))
 
-# Obtener las 5 publicaciones más recientes del subreddit
-subreddit = reddit.subreddit("Depresion")
-publicaciones = subreddit.new(limit=10)
-
-# Almacenar las publicaciones nuevas que no han sido vistas
-nuevas_publicaciones = []
-
-# Procesar las publicaciones más recientes
-for submission in publicaciones:
-    if submission.id not in publicaciones_vistas:
-        nuevas_publicaciones.append(submission)
-        publicaciones_vistas.append(submission.id)  # Almacenar ID de la publicación para evitar repetirla
-
+# Mostrar publicaciones en Streamlit
+for submission in st.session_state.publicaciones:
+    # Verificar si el post ya ha sido procesado
+    if submission.id not in st.session_state.posts_procesados:
         st.subheader(submission.title)
         st.write(f"**Autor**: {submission.author}")
         st.write(f"**Contenido**: {submission.selftext}")
@@ -112,25 +112,11 @@ for submission in publicaciones:
         # Analizar emociones y generar consejo
         emocion_detectada, consejo = analizar_y_dar_consejos(submission.selftext)
         
-        # Guardar en Streamlit
+        # Mostrar emociones y consejo en Streamlit
         st.write(f"**Emoción detectada**: {emocion_detectada}")
         st.write(f"**Consejo**: {consejo}")
         st.write("---")
         
-        # Guardar en publicaciones pasadas para acceso futuro
-        publicaciones_pasadas.append({
-            'title': submission.title,
-            'author': submission.author,
-            'content': submission.selftext,
-            'url': submission.url,
-            'emotion': emocion_detectada,
-            'advice': consejo
-        })
-
-# Guardar las publicaciones pasadas y vistas en la sesión
-st.session_state['publicaciones_vistas'] = publicaciones_vistas
-st.session_state['publicaciones_pasadas'] = publicaciones_pasadas
-
-# Automatización: Recargar la página cada 60 segundos
-st.experimental_rerun()
-time.sleep(500)
+        # Guardar el post como procesado
+        guardar_post_procesado(submission.id)
+        st.session_state.posts_procesados.add(submission.id)
